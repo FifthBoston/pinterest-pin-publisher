@@ -1,6 +1,35 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { SettingsModal } from "@/components/SettingsModal";
+
+// Types
+interface Settings {
+  pinterestAccessToken: string;
+  pinterestAppId: string;
+  pinterestAppSecret: string;
+  openaiApiKey: string;
+  defaultDestinationUrl: string;
+  defaultBoard: string;
+  autoGenerateContent: boolean;
+}
+
+interface Pin {
+  id: string;
+  title: string;
+  description: string;
+  board: string;
+  section: string;
+  mediaType: string;
+  thumbnailUrl: string;
+  destinationUrl: string;
+  status: string;
+  createdAt: string;
+  scheduledFor?: string;
+  impressions: number;
+  saves: number;
+  clicks: number;
+}
 
 // Mock data for demonstration
 const mockBoards = [
@@ -11,7 +40,7 @@ const mockBoards = [
   { id: "5", name: "E-commerce", sections: ["Products", "Dropshipping", "Amazon FBA"] },
 ];
 
-const mockPublishedPins = [
+const mockPublishedPins: Pin[] = [
   {
     id: "pin_001",
     title: "10 AI Tools That Will Transform Your Business in 2026",
@@ -75,6 +104,16 @@ const mockPublishedPins = [
   },
 ];
 
+const defaultSettings: Settings = {
+  pinterestAccessToken: "",
+  pinterestAppId: "",
+  pinterestAppSecret: "",
+  openaiApiKey: "",
+  defaultDestinationUrl: "https://unifiedicp.com/",
+  defaultBoard: "",
+  autoGenerateContent: true,
+};
+
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -86,9 +125,35 @@ export default function Home() {
   const [selectedSection, setSelectedSection] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
-  const [publishedPins, setPublishedPins] = useState(mockPublishedPins);
+  const [publishedPins, setPublishedPins] = useState<Pin[]>(mockPublishedPins);
   const [aiSuggestion, setAiSuggestion] = useState<{ board: string; section: string; reason: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Settings
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const [isConnected, setIsConnected] = useState(false);
+
+  // Load settings from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("pinterest-publisher-settings");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setSettings(parsed);
+        setDestinationUrl(parsed.defaultDestinationUrl || "https://unifiedicp.com/");
+        setIsConnected(!!parsed.pinterestAccessToken);
+      } catch (e) {
+        console.error("Failed to parse saved settings:", e);
+      }
+    }
+  }, []);
+
+  const handleSettingsSave = (newSettings: Settings) => {
+    setSettings(newSettings);
+    setDestinationUrl(newSettings.defaultDestinationUrl || destinationUrl);
+    setIsConnected(!!newSettings.pinterestAccessToken);
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -120,23 +185,36 @@ export default function Home() {
   };
 
   const generateAIContent = async () => {
+    if (!settings.openaiApiKey) {
+      alert("Please add your OpenAI API key in Settings to use AI generation.");
+      setIsSettingsOpen(true);
+      return;
+    }
+
     setIsGenerating(true);
-    // Simulate AI generation
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    
+    try {
+      // TODO: Replace with real OpenAI API call
+      // For now, simulate AI generation
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    // Mock AI-generated content
-    setTitle("Unlock Your Business Potential with AI-Powered Solutions");
-    setDescription(
-      "Transform the way you work with cutting-edge AI tools designed for modern entrepreneurs. Automate tedious tasks, generate insights, and scale faster than ever before. Your competitors are already using AI—don't get left behind."
-    );
-    setHashtags("#AI #Business #Automation #Entrepreneur #Growth #Tech #Productivity #Success");
+      // Mock AI-generated content
+      setTitle("Unlock Your Business Potential with AI-Powered Solutions");
+      setDescription(
+        "Transform the way you work with cutting-edge AI tools designed for modern entrepreneurs. Automate tedious tasks, generate insights, and scale faster than ever before. Your competitors are already using AI—don't get left behind."
+      );
+      setHashtags("#AI #Business #Automation #Entrepreneur #Growth #Tech #Productivity #Success");
 
-    // AI board suggestion
-    setAiSuggestion({
-      board: "Tech & Tools",
-      section: "AI Tools",
-      reason: "Based on your content about AI solutions, this board has the highest engagement for tech-related pins and reaches your target audience of entrepreneurs and business owners.",
-    });
+      // AI board suggestion
+      setAiSuggestion({
+        board: "Tech & Tools",
+        section: "AI Tools",
+        reason: "Based on your content about AI solutions, this board has the highest engagement for tech-related pins and reaches your target audience of entrepreneurs and business owners.",
+      });
+    } catch (error) {
+      console.error("AI generation failed:", error);
+      alert("Failed to generate content. Please try again.");
+    }
 
     setIsGenerating(false);
   };
@@ -147,40 +225,60 @@ export default function Home() {
       return;
     }
 
+    if (!settings.pinterestAccessToken) {
+      alert("Please add your Pinterest API credentials in Settings to publish pins.");
+      setIsSettingsOpen(true);
+      return;
+    }
+
     setIsPublishing(true);
-    // Simulate publishing
-    await new Promise((resolve) => setTimeout(resolve, 2500));
+    
+    try {
+      // TODO: Replace with real Pinterest API call
+      // For now, simulate publishing
+      await new Promise((resolve) => setTimeout(resolve, 2500));
 
-    const newPin = {
-      id: `pin_${Date.now()}`,
-      title: title || "Untitled Pin",
-      description: description,
-      board: selectedBoard || aiSuggestion?.board || "Tech & Tools",
-      section: selectedSection || aiSuggestion?.section || "General",
-      mediaType: file.type.startsWith("video/") ? "video" : "image",
-      thumbnailUrl: preview || "https://placehold.co/150x200/1A1A1A/FFD700?text=New+Pin",
-      destinationUrl: destinationUrl,
-      status: "published",
-      createdAt: new Date().toISOString(),
-      impressions: 0,
-      saves: 0,
-      clicks: 0,
-    };
+      const newPin: Pin = {
+        id: `pin_${Date.now()}`,
+        title: title || "Untitled Pin",
+        description: description,
+        board: selectedBoard || aiSuggestion?.board || settings.defaultBoard || "Tech & Tools",
+        section: selectedSection || aiSuggestion?.section || "General",
+        mediaType: file.type.startsWith("video/") ? "video" : "image",
+        thumbnailUrl: preview || "https://placehold.co/150x200/1A1A1A/FFD700?text=New+Pin",
+        destinationUrl: destinationUrl,
+        status: "published",
+        createdAt: new Date().toISOString(),
+        impressions: 0,
+        saves: 0,
+        clicks: 0,
+      };
 
-    setPublishedPins([newPin, ...publishedPins]);
+      setPublishedPins([newPin, ...publishedPins]);
 
-    // Reset form
-    setFile(null);
-    setPreview(null);
-    setTitle("");
-    setDescription("");
-    setHashtags("");
-    setSelectedBoard("");
-    setSelectedSection("");
-    setAiSuggestion(null);
+      // Reset form
+      setFile(null);
+      setPreview(null);
+      setTitle("");
+      setDescription("");
+      setHashtags("");
+      setSelectedBoard("");
+      setSelectedSection("");
+      setAiSuggestion(null);
+
+      alert("Pin published successfully! (Demo mode - connect Pinterest API for real publishing)");
+    } catch (error) {
+      console.error("Publishing failed:", error);
+      alert("Failed to publish pin. Please try again.");
+    }
+
     setIsPublishing(false);
+  };
 
-    alert("Pin published successfully! (Demo mode)");
+  const handleDeletePin = (pinId: string) => {
+    if (confirm("Are you sure you want to delete this pin?")) {
+      setPublishedPins(publishedPins.filter(p => p.id !== pinId));
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -197,8 +295,16 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-black">
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onSave={handleSettingsSave}
+        initialSettings={settings}
+      />
+
       {/* Header */}
-      <header className="border-b border-[#333333] bg-black sticky top-0 z-50">
+      <header className="border-b border-[#333333] bg-black sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
@@ -209,11 +315,18 @@ export default function Home() {
               <p className="text-[#CCCCCC] text-sm">AI-powered automation for maximum visibility</p>
             </div>
             <div className="flex items-center gap-4">
-              <div className="px-3 py-1 rounded-full bg-[#2A4D3A] text-[#90EE90] text-sm">
-                <i className="fas fa-circle text-xs mr-2"></i>
-                Connected
+              <div className={`px-3 py-1 rounded-full text-sm ${
+                isConnected 
+                  ? "bg-[#2A4D3A] text-[#90EE90]" 
+                  : "bg-[#4D2A2A] text-[#EE9090]"
+              }`}>
+                <i className={`fas fa-${isConnected ? "check-circle" : "exclamation-circle"} mr-2`}></i>
+                {isConnected ? "Connected" : "Not Connected"}
               </div>
-              <button className="px-4 py-2 bg-[#1A1A1A] border border-[#333333] rounded-lg text-[#CCCCCC] hover:border-[#FFD700] hover:text-[#FFD700] transition-all">
+              <button 
+                onClick={() => setIsSettingsOpen(true)}
+                className="px-4 py-2 bg-[#1A1A1A] border border-[#333333] rounded-lg text-[#CCCCCC] hover:border-[#FFD700] hover:text-[#FFD700] transition-all"
+              >
                 <i className="fas fa-cog mr-2"></i>
                 Settings
               </button>
@@ -223,6 +336,25 @@ export default function Home() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Connection Warning */}
+        {!isConnected && (
+          <div className="mb-6 p-4 bg-[#4D2A2A]/30 border border-[#4D2A2A] rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <i className="fas fa-exclamation-triangle text-[#EE9090] text-xl"></i>
+              <div>
+                <p className="text-white font-medium">Pinterest API not connected</p>
+                <p className="text-[#CCCCCC] text-sm">Add your API credentials in Settings to start publishing pins.</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="px-4 py-2 bg-[#FFD700] text-black rounded-lg font-medium hover:bg-[#FFC700] transition-colors"
+            >
+              Connect Now
+            </button>
+          </div>
+        )}
+
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Left Column - Pin Creator */}
           <div className="space-y-6">
@@ -267,7 +399,7 @@ export default function Home() {
                     )}
                     <p className="text-[#90EE90] text-sm">
                       <i className="fas fa-check-circle mr-2"></i>
-                      {file?.name} ({(file?.size || 0 / 1024 / 1024).toFixed(2)} MB)
+                      {file?.name} ({((file?.size || 0) / 1024 / 1024).toFixed(2)} MB)
                     </p>
                     <button
                       onClick={(e) => {
@@ -283,7 +415,7 @@ export default function Home() {
                   </div>
                 ) : (
                   <>
-                    <i className="fas fa-cloud-upload-alt text-4xl text-[#FFD700] mb-4"></i>
+                    <i className="fas fa-cloud-upload-alt text-4xl text-[#FFD700] mb-4 block"></i>
                     <p className="text-white font-medium mb-2">
                       Drop your image or video here
                     </p>
@@ -478,7 +610,7 @@ export default function Home() {
                     )
                   ) : (
                     <div className="text-center text-[#666666]">
-                      <i className="fas fa-image text-4xl mb-2"></i>
+                      <i className="fas fa-image text-4xl mb-2 block"></i>
                       <p className="text-sm">Upload to preview</p>
                     </div>
                   )}
@@ -547,6 +679,7 @@ export default function Home() {
                   <th className="px-6 py-4 text-right text-sm font-medium text-[#FFD700]">Saves</th>
                   <th className="px-6 py-4 text-right text-sm font-medium text-[#FFD700]">Clicks</th>
                   <th className="px-6 py-4 text-left text-sm font-medium text-[#FFD700]">Date</th>
+                  <th className="px-6 py-4 text-center text-sm font-medium text-[#FFD700]">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#333333]">
@@ -600,6 +733,15 @@ export default function Home() {
                     </td>
                     <td className="px-6 py-4 text-[#CCCCCC] text-sm">
                       {formatDate(pin.createdAt)}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <button
+                        onClick={() => handleDeletePin(pin.id)}
+                        className="text-[#666666] hover:text-red-400 transition-colors p-2"
+                        title="Delete pin"
+                      >
+                        <i className="fas fa-trash"></i>
+                      </button>
                     </td>
                   </tr>
                 ))}
